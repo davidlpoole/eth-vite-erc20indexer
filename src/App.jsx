@@ -8,7 +8,7 @@ import {
     Input,
     SimpleGrid,
     Text,
-    Spinner,
+    Spinner, Card, CardBody, Divider, Stack, CircularProgress,
 } from '@chakra-ui/react';
 import {Alchemy, Network, Utils} from 'alchemy-sdk';
 import {useState} from 'react';
@@ -31,6 +31,9 @@ function App() {
         if (userAddress === '') {
             setStatus('');
             return
+        } else if (!ethers.utils.isAddress(userAddress)) {
+            setStatus('invalid')
+            return
         }
 
         setStatus('fetching');
@@ -51,20 +54,27 @@ function App() {
 
         const tokenDataPromises = [];
 
-        for (let i = 0; i < filtered.length; i++) {
-            const tokenData = alchemy.core.getTokenMetadata(
-                filtered[i].contractAddress
-            );
-            tokenDataPromises.push(tokenData);
+        if (filtered.length > 0) {
+            for (let i = 0; i < filtered.length; i++) {
+                const tokenData = alchemy.core.getTokenMetadata(
+                    filtered[i].contractAddress
+                );
+                tokenDataPromises.push(tokenData);
+            }
+
+            setTokenDataObjects(await Promise.all(tokenDataPromises));
+            setStatus('loaded');
+            return;
         }
 
-        setTokenDataObjects(await Promise.all(tokenDataPromises));
-        setStatus('loaded');
+        setStatus('notfound')
+
     }
 
     return (
-        <Box w="100vw">
-
+        <Box w="100vw" h="100vh">
+            <Center className="head">ERC-20 Token Balance Checker</Center>
+            <Box pt={36}>
             <Flex
                 w="100%"
                 flexDirection="column"
@@ -84,14 +94,15 @@ function App() {
                     bgColor="white"
                     fontSize={24}
                     value={userAddress}
+                    placeholder="Enter an address or get address from browser wallet"
                 />
 
                 {(userAddress !== '') ? (
-                    <Button fontSize={20} onClick={getTokenBalance} mt={36} bgColor="blue">
+                    <Button fontSize={20} onClick={getTokenBalance} mt={36}>
                         Check ERC-20 Token Balances
                     </Button>
                 ) : (
-                    <Button fontSize={20} onClick={getWalletAddress} mt={36} bgColor="blue">
+                    <Button fontSize={20} onClick={getWalletAddress} mt={36}>
                         Get browser wallet address
                     </Button>
                 )
@@ -99,41 +110,33 @@ function App() {
 
                 {(status === 'loaded') ? (
                     <div>
-                        <Button fontSize={20} onClick={() => {
-                            setStatus('')
-                        }} mt={36} bgColor="blue">
-                            Hide
-                        </Button>
-                        <SimpleGrid w={'90vw'} mt={36} columns={4} spacing={24}>
-                            {results.tokenBalances.map((e, i) => {
+                        <SimpleGrid w={'90vw'} mt={36} columns={4} spacing={30}>
                             {results.map((e, i) => {
                                 return (
-                                    <Flex
-                                        flexDir={'column'}
-                                        color="white"
-                                        bg="blue"
-                                        w={'20vw'}
-                                        key={e.id}
-                                    >
-                                        <Box>
-                                            <b>Symbol:</b> ${tokenDataObjects[i].symbol}&nbsp;
-                                        </Box>
-                                        <Box>
-                                            <b>Balance:</b>&nbsp;
-                                            {Utils.formatUnits(
+                                    <Card key={i} className='test'>
+                                        <Stack>
+                                            <Image src={tokenDataObjects[i].logo} maxH={64}
+                                                   maxW={64} boxSize={64}/>
+                                            <div>{Utils.formatUnits(
                                                 e.tokenBalance,
                                                 tokenDataObjects[i].decimals
-                                            )}
-                                        </Box>
-                                        <Image src={tokenDataObjects[i].logo}/>
-                                    </Flex>
+                                            )}</div><div>{tokenDataObjects[i].symbol}</div>
+
+                                        </Stack>
+                                    </Card>
+
+
                                 );
                             })}
                         </SimpleGrid>
                     </div>
-                ) : (status)
-                }
+
+                ) : null }
+                {(status === 'fetching') ? <CircularProgress isIndeterminate mt={36}/> : null}
+                {(status === 'invalid') ? <Box color="red" mt={36}>Invalid address</Box> : null }
+                {(status === 'notfound') ? <Box color="red" mt={36}>No ERC-20 tokens found</Box> : null }
             </Flex>
+            </Box>
         </Box>
     );
 }
